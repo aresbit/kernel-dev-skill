@@ -1,117 +1,148 @@
 ---
 name: kernel-dev-skill
-description: Modernize Linux kernel drivers with minimal changes to restore compilation and runtime functionality. Use when users mention driver porting, kernel upgrade incompatibility, outdated APIs, DKMS, or probe/remove issues.
+description: Linux kernel development skill grounded in local references/labs and references/lectures materials. Use for kernel modules, system calls, process scheduling, interrupts, locking, memory management, filesystems, networking, architecture, debugging, profiling, and device model work.
 ---
 
-# Linux Kernel Driver Modernization
+# Linux Kernel Development
 
-**Core Principle**: `Simple is better than everything`. Prioritize minimal, rollback-able, verifiable fixes.
+Core rule: `simple is superior to everything`.
 
-## When to Use
+This skill is for practical kernel engineering. Use it to analyze failures, choose the smallest relevant subsystem material, make minimal verifiable changes, and validate with evidence.
 
-Use this skill immediately in the following scenarios:
-- Old drivers failing to compile on new kernels (e.g., 5.x/6.x)
-- Runtime probe failures, missing symbols, structure field changes
-- Need to migrate out-of-tree drivers to new APIs
-- Need a "compile first, then gradually correct" transformation plan
+## Use this skill when
 
-## Input Checklist
+- Kernel code fails to build or run on a target kernel
+- A module, subsystem patch, or lab skeleton needs implementation
+- You need help on process, syscall, interrupt, SMP, memory, filesystem, networking, or architecture topics
+- You are decoding oops/panic, lock bugs, memory bugs, or performance regressions
+- You are working on device-model or driver-adjacent kernel paths
 
-First collect minimal necessary information to avoid over-analysis:
-- Target kernel version and distribution
-- Driver source path, `Kbuild/Makefile`
-- First compilation errors (first 50 lines)
-- Runtime key logs: corresponding module snippet in `dmesg`
-- Hardware bus type (PCI/I2C/SPI/Platform/USB)
+## Scope
 
-## Execution Order (Shortest Path)
+Includes:
 
-1. First reproduce failure and freeze baseline: run only one full build, save original errors.
-2. Fix by "compilation blocking priority": type/API/macro first, then semantic behavior.
-3. Make only one type of change at a time and recompile, ensuring rollback capability.
-4. After compilation passes, do minimal runtime verification (load, probe, basic IO).
-5. Finally add static checks and regression checklist.
+- kernel modules and build flow
+- kernel API and execution context rules
+- system calls and process interactions
+- interrupts and deferred work
+- SMP and synchronization
+- memory management and mapping
+- filesystems and VFS-facing logic
+- networking stack and net path basics
+- architecture layer and portability concerns
+- debugging and profiling
+- device and driver model
 
-## Common Modernization Checklist
+## Coverage contract
 
-Check by frequency from high to low:
-- `file_operations`/`proc_ops` structure differences
-- `timer_list` new interfaces and callback signature changes
-- `get_user_pages*`, DMA mapping, memory API changes
-- `irq` registration/release, `devm_*` resource management replacement
-- `strlcpy`/`scnprintf`/`min_t` security interface replacements
-- Kernel log level and `pr_*` normalization
-- `of_*`/`acpi_*` matching and device tree compatibility fields
+When responding, ensure the chosen path explicitly maps to one of these kernel components:
 
-## Minimal Change Strategy
+- module lifecycle
+- syscall boundary
+- process/scheduler path
+- interrupts/deferred work
+- locking/SMP behavior
+- memory subsystem (allocation, mapping, lifetime, reclaim-facing assumptions)
+- filesystem/VFS path
+- networking path
+- architecture portability
+- debugging/profiling or device model
 
-- Compatibility layer first, then refactoring: prioritize thin wrapper macros/static inline functions, don't do major architectural changes first.
-- No cross-file large migrations: single change limited to one theme.
-- No premature optimization: make code correct first, then discuss performance and style unification.
-- Use existing kernel helpers, don't reinvent the wheel.
+If the issue touches memory, call out which memory aspect is involved:
 
-## Diagnostic Commands
+- allocation/lifetime (`kmalloc`, `vmalloc`, `kzalloc`, free path symmetry)
+- user/kernel copy boundary
+- mapping or virtual memory behavior (`mmap`, vm area assumptions)
+- context safety (sleeping/atomic constraints)
+
+Excludes:
+
+- pure user-space programs
+- generic Linux administration without kernel code
+
+## Required inputs
+
+Collect minimal hard evidence before proposing a patch:
+
+- target kernel version, distro, architecture
+- source path and build entry (`Makefile` / `Kbuild` / target)
+- first failing build log or runtime log
+- subsystem guess: module, syscall, process, irq, memory, fs, net, arch, driver, or unknown
+- desired outcome: compile fix, runtime fix, behavior change, or learning implementation
+
+## Workflow
+
+1. Freeze baseline.
+   Run one build or collect one complete runtime failure trace.
+2. Classify failure.
+   Place blockers into one class: API break, context violation, concurrency, memory, lifecycle, functional bug, or performance issue.
+3. Route to one reference first.
+   Use [references/source-map.md](references/source-map.md) to pick the smallest matching file from `references/labs` or `references/lectures`.
+4. Patch one theme per step.
+   Avoid mixing unrelated refactors.
+5. Verify immediately.
+   Rebuild and run one focused check that proves the specific blocker moved.
+6. Expand only after proof.
+   After the first fix is validated, handle next blocker.
+
+## Hard rules
+
+- Minimal, reversible, evidence-based changes.
+- No API claims without code/log evidence.
+- Do not redesign architecture while baseline is broken.
+- Do not hide uncertainty; label assumptions and provide next confirming command.
+- Keep recommendations subsystem-specific, not generic Linux advice.
+
+## Command set
 
 ```bash
-# Basic compilation
 make -C /lib/modules/$(uname -r)/build M=$PWD V=1 modules
-```
-
-```bash
-# Warnings and checks
 make -C /lib/modules/$(uname -r)/build M=$PWD W=1 C=1 modules
-```
-
-```bash
-# Sparse analysis
-sparse -Wbitwise -Wcontext -Wcast-to-as -Wdefault-bitfield-sign -Wno-transparent-union
-```
-
-```bash
-# Checkpatch
-scripts/checkpatch.pl --strict --max-line-length=100 -f <changed_file.c>
-```
-
-```bash
-# Coccinelle semantic patches
-coccicheck MODE=report M=$PWD
-```
-
-```bash
-# Kernel logs
 dmesg -T | tail -n 200
+scripts/checkpatch.pl --strict -f path/to/file.c
 ```
 
-## Output Template
+Add subsystem commands only when they directly test the current blocker.
 
-Always output in this structure, keep it concise:
+## Subsystem verification rule
+
+For the selected subsystem, include at least one verification step with an expected signal:
+
+- memory: allocator path, user-copy return handling, or mapping behavior check
+- interrupts: handler registration and interrupt-path signal in logs
+- process/scheduler: task state transition or wake/sleep behavior evidence
+- filesystem: VFS callback path evidence
+- networking: packet path or interface state transition evidence
+- syscall boundary: errno and copy boundary behavior evidence
+
+## Output format
 
 ```text
-# Modernization Plan
-## 1) Build blockers (must-fix first)
-## 2) Minimal patch set (ordered, reversible)
-## 3) Runtime smoke checks
-## 4) Regression risks
-## 5) Next smallest step
+1. Subsystem and failure class
+2. Evidence used
+3. Relevant local material
+4. Smallest patch sequence
+5. Verification step and expected signal
+6. Risks / assumptions
 ```
 
-## Quality Gates
+Output must satisfy all items:
 
-- Must provide "minimal patch sequence", not generic suggestions.
-- Each suggestion must map to specific error or log evidence.
-- When uncertain, explicitly label assumptions, don't fabricate API details.
-- Control output length: prioritize 5-12 high-value actions, avoid verbosity.
+- name one primary kernel component from the coverage contract
+- cite the local material file used for that component (`references/labs/*.md` or `references/lectures/*.md`)
+- provide one concrete verification step with expected signal
+- if subsystem is unknown, state the shortest command to disambiguate it
 
-## Efficient Mode (30 minutes)
+## Fast mode
 
-When user explicitly wants "firefighting first, then improvement", switch to efficient mode:
-- Execute maximum 3 commands: `build`, `dmesg`, `grep`.
-- Output only the first 3 blocking issues and corresponding minimal fixes.
-- Each action must be "verifiable within 10 minutes".
+For firefighting requests:
+
+- show top 3 blockers only
+- map each blocker to one local reference
+- provide smallest next patch and one verification step
 
 ## References
 
-- **Navigation Guide**: `references/source-map.md` - Maps to educational content
-- **Quick Start**: `references/getting-started.md` - 30-minute firefighting workflow
-- **API Migration Checklist**: `references/api-migration-checklist.md` - Prioritized API issues
-- **Educational Content**: `./linux-kernel-labs-md/` - 93 markdown files with lectures and labs
+- [references/source-map.md](references/source-map.md)
+- [references/getting-started.md](references/getting-started.md)
+- [references/api-migration-checklist.md](references/api-migration-checklist.md)

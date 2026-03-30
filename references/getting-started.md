@@ -1,31 +1,53 @@
-# Getting Started (Driver Modernization)
+# Kernel Development Quickstart
 
-## Goal
+Use this document for first-pass kernel triage and implementation guidance.
 
-Get old drivers from "compilation failure" back to "compilable, loadable, basic verifiable" in the shortest time possible.
+## 1. Establish baseline
 
-## 30-Minute Firefighting Process
+- Capture kernel version and architecture.
+- Run one full build or capture one full runtime trace.
+- Keep raw evidence unchanged for comparison.
 
-### 1. Save Baseline Errors
-- `make -C /lib/modules/$(uname -r)/build M=$PWD V=1 modules > build.log 2>&1`
-- Capture only the first 50 lines of the first error chain.
+## 2. Identify subsystem
 
-### 2. Identify First Blockers
-- Fix type/macro/function signature changes first.
-- Temporarily ignore style warnings and performance optimizations.
+Classify the issue into one primary subsystem:
 
-### 3. Single-Theme Changes + Recompilation
-- Fix only one type of problem at a time.
-- Immediately verify with `make` after each change.
+- module
+- syscall
+- process/scheduler
+- interrupt/deferred work
+- locking/SMP
+- memory subsystem
+- filesystem/VFS
+- networking
+- architecture
+- device model
+- debugging/profiling
 
-### 4. Minimal Runtime Verification
-- `insmod` or `modprobe`
-- Check `dmesg` for `probe`/`remove`/irq key logs
+## 3. Pick material
 
-## What NOT to Do
+Use `source-map.md` and load one primary file only.
+If blocked, load one secondary file.
 
-- **Don't do large-scale refactoring** in the first migration round.
-- **Don't guess API behavior** without evidence.
-- **Don't make changes across multiple modules** simultaneously.
-- **Don't optimize prematurely** - correctness first, performance later.
-- **Don't ignore rollback capability** - each change should be reversible.
+## 4. Apply smallest fix
+
+- Change one theme at a time.
+- Preserve rollback ability.
+- Avoid broad refactor during unstable baseline.
+
+## 5. Verify with signal
+
+Every proposed step must include one expected signal:
+
+- compile output movement
+- runtime log signal (`dmesg` marker)
+- subsystem behavior evidence (e.g., IRQ registration, copy boundary, wake path)
+
+## 6. Deliver minimal report
+
+- subsystem + failure class
+- evidence used
+- file path(s) consulted under `references/`
+- smallest patch sequence
+- verification command and expected signal
+- one risk/assumption
